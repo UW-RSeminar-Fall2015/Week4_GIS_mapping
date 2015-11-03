@@ -55,7 +55,7 @@ map <- shapefile("cntry06/cntry06.shp")
 admin <- crop(map,c(-150,-105,25,65))
 admin.df <- fortify(admin)
 #plot with geom_polygon()
-ggplot()+coord_map(xlim=c(-150,-105),ylim=c(25,65))+theme_bw()+
+ggplot()+coord_map(xlim=c(-150,-105),ylim=c(25,65))+theme_bw()+theme(panel.grid=element_blank())+
   geom_polygon(data=anhu.df,aes(x=long,y=lat,group=group),fill="violet")+
   geom_polygon(data=ruhu.df,aes(x=long,y=lat,group=group),fill="orangered",alpha=0.7)+
   geom_polygon(data=admin.df,aes(x=long,y=lat,group=group),fill=NA,col="black")
@@ -67,7 +67,7 @@ ggplot()+coord_map(xlim=c(-150,-105),ylim=c(25,65))+theme_bw()+
 #let's build a raster where the cell value equals the number of species within a clade that occur in a given area. 
 ##build an empty raster on a lat/long grid at 10min resolution
 r <- raster(xmn=-180, xmx=180, ymn=-90, ymx=90, res=1/6, vals=0)
-west <- crop(r,c(-128,-105,26,52))
+west <- crop(r,c(-150,-30,-42,55))
 #test out rasterizing with just the anhu range.
 anhu.r <- rasterize(anhu.b,west)
 plot(anhu.r)
@@ -87,32 +87,35 @@ plot(n.species)
 #writeRaster(n.species,"~/Desktop/beeHum_div_10min.tif")
 
 
-###########################################################################
-############## loop #2: visualizing hummingbird migration #################
-###########################################################################
+##############################################################################################################################
+############## loop #2: visualizing hummingbird migration ####################################################################
+### See Supp 2015 (http://www.esajournals.org/doi/abs/10.1890/ES14-00290.1) for a rigorous of similar methods ################
+##############################################################################################################################
+
 #read in rufous hummingbird eBird reports and a country outlines map
 ruhu <- read.delim("ebd_rufhum_relNov-2014/ebd_rufhum_relNov-2014.txt")
 ruhu$date <- as.Date(ruhu$OBSERVATION.DATE,"%m/%d/%Y")
 ruhu$month <- as.numeric(substr(ruhu$date,6,7))
 ruhu$monthName <- months(ruhu$date)
 ruhuW <- subset(ruhu,LONGITUDE < -96)
-map <- crop(shapefile("cntry06/cntry06.shp"),c(-145,-60,10,62))
+ext <- extent(c(-145,-60,10,62))
+map <- shapefile("cntry06/cntry06.shp")
 
 #read in an effort raster (total # reports per grid cell at 10 min resolution)
 r <- raster(xmn=-180, xmx=180, ymn=-90, ymx=90, res=1, vals=0)
-effort <- crop(resample(raster("effort.tif"),r),c(-145,-60,10,62))
-r.ruhu <- crop(r,c(-145,-60,10,62))
+effort <- crop(resample(raster("effort.tif"),r),ext)
+r.ruhu <- crop(r,ext)
 
 ##loop over months: subset occurrence records, rasterize, divide by effort, write to file
 #as a static figure
 old.par <- par()
-pdf(paste("./ruhu_freq/freq_",i,".pdf",sep="",width=6.5,height=9))
-par(mfrow=c(3,4),mar=c(2.5,3.5,1,.5),mgp=c(1.5, .5, 0),oma=c(0,0,3,0))
+pdf(file="./ruhu_freq/ruhu_monthly.pdf",width=6.5,height=5)
+par(mfrow=c(3,4),mar=c(2.5,1,1,1),mgp=c(1.5, .5, 0),oma=c(0,0,3,0))
 for(i in c(1:12)){
-  a <- subset(ruhuW,month == i)
+  a <- subset(ruhu,month == i)
   locs <- SpatialPoints(data.frame(a$LONGITUDE,a$LATITUDE))
-  log.frequency <- log(rasterize(locs,r.ruhu,fun="count")/effort)
-  plot(log.frequency,col=brewer.pal(n=6,name="YlOrRd"),legend=F,axes=F,breaks=c(-5,-1,0,1,2,3),
+  frequency <- rasterize(locs,r.ruhu,fun="count")/effort
+  plot(frequency,col=brewer.pal(n=7,name="YlOrRd"),legend=F,axes=F,breaks=c(1e-2,5e-2,1e-1,5e-1,1,5,10),
        main=paste(a$monthName[1]),xaxs="i", yaxs="i")+
           plot(map,col=NA,add=TRUE)+
           mtext("Rufous Hummingbird Report Frequency",outer = TRUE,side = 3,cex = 1.2,line = 1)
@@ -122,30 +125,16 @@ par(old.par)
 
 #or output new pdf's for each month, then gif it up in photoshop
 for(i in c(1:12)){
-  a <- subset(ruhuW,month == i)
+  a <- subset(ruhu,month == i)
   locs <- SpatialPoints(data.frame(a$LONGITUDE,a$LATITUDE))
-  log.frequency <- log(rasterize(locs,r.ruhu,fun="count")/effort)
+  frequency <- rasterize(locs,r.ruhu,fun="count")/effort
   pdf(paste("./ruhu_freq/freq_",i,".pdf",sep=""))
-  plot(log.frequency,col=brewer.pal(n=6,name="YlOrRd"),legend=F,axes=T,breaks=c(-5,-1,0,1,2,3))+plot(map,col=NA,add=TRUE)
+  plot(frequency,col=brewer.pal(n=7,name="YlOrRd"),legend=F,axes=F,breaks=c(1e-2,5e-2,1e-1,5e-1,1,5,10),
+       main=paste(a$monthName[1]),xaxs="i", yaxs="i")+
+    plot(map,col=NA,add=TRUE)+
+    mtext("Rufous Hummingbird Report Frequency",outer = TRUE,side = 3,cex = 1.2,line = 1)
   dev.off()
 }
-
-ggplot()+coord_map()+theme_bw()+
-  geom_polygon(data=map,aes(x=long,y=lat,group=group),fill=NA,col="black")+
-  geom_point(data=ruhu,aes(x=LONGITUDE,y=LATITUDE))
-
-ggplot()+coord_map()+theme_bw()+
-  geom_polygon(data=map,aes(x=long,y=lat,group=group),fill=NA,col="black")+
-  geom_bin2d(data=ruhu,aes(x=LONGITUDE,y=LATITUDE))
-
-ggplot()+coord_map()+theme_bw()+
-  geom_polygon(data=map,aes(x=long,y=lat,group=group),fill=NA,col="black")+
-  stat_summary2d(data=ruhu,aes(x=LONGITUDE,y=LATITUDE,z=month,fun="mean"))
-
-ggplot()+coord_map()+theme_bw()+
-  geom_polygon(data=map,aes(x=long,y=lat,group=group),fill=NA,col="black")+
-  stat_density2d(data=ruhu,aes(x=LONGITUDE,y=LATITUDE))
-
 
 
 
