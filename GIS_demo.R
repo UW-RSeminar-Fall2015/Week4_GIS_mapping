@@ -89,7 +89,7 @@ plot(n.species)
 
 ##############################################################################################################################
 ############## loop #2: visualizing hummingbird migration ####################################################################
-### See Supp 2015 (http://www.esajournals.org/doi/abs/10.1890/ES14-00290.1) for a rigorous of similar methods ################
+### See Supp 2015 (http://www.esajournals.org/doi/abs/10.1890/ES14-00290.1) for a better version of this #####################
 ##############################################################################################################################
 
 #read in rufous hummingbird eBird reports and a country outlines map
@@ -101,7 +101,7 @@ ruhuW <- subset(ruhu,LONGITUDE < -96)
 ext <- extent(c(-145,-60,10,62))
 map <- shapefile("cntry06/cntry06.shp")
 
-#read in an effort raster (total # reports per grid cell at 10 min resolution)
+#read in an effort raster (total # reports per grid cell at 1 deg resolution)
 r <- raster(xmn=-180, xmx=180, ymn=-90, ymx=90, res=1, vals=0)
 effort <- crop(resample(raster("effort.tif"),r),ext)
 r.ruhu <- crop(r,ext)
